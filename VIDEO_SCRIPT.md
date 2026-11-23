@@ -6,7 +6,7 @@
 
 **1:30–2:15** Import a `.txt` or `.md` file (optionally DOCX) and demonstrate editable content.
 
-**2:15–3:10** Share with Ava as `can view`. Switch to Ava and show read-only mode; as Ruth, change to `can edit` and demonstrate the difference.
+**2:15–3:10** Share with Leen as `can view`. Switch to Leen and show read-only mode; as Ruth, change to `can edit` and demonstrate the difference.
 
 **3:10–4:10** Explain the backend and SQLite storage, the access-control test, and where AI aided your actual workflow.
 
