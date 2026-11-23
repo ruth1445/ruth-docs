@@ -98,8 +98,8 @@ def create_app(db_path: str | None = None) -> FastAPI:
         """)
         if "role" not in [r[1] for r in db.execute("PRAGMA table_info(shares)")]:
             db.execute("ALTER TABLE shares ADD COLUMN role TEXT NOT NULL DEFAULT 'edit'")
-        for uid, name in [(1, "Ruth"), (2, "Ava"), (3, "Noah")]:
-            db.execute("INSERT OR IGNORE INTO users(id,name) VALUES(?,?)", (uid, name))
+        for uid, name in [(1, "Ruth"), (2, "Leen"), (3, "Arden")]:
+            db.execute("INSERT INTO users(id,name) VALUES(?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name", (uid, name))
         count = db.execute("SELECT COUNT(*) FROM documents").fetchone()[0]
         if count == 0:
             db.execute("INSERT INTO documents(owner_id,title,content) VALUES (?,?,?)", (
