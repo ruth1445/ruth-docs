@@ -72,3 +72,15 @@ aside h2{margin:0 0 6px;display:flex;align-items:center;gap:10px}
 @media(max-width:780px){header,nav{padding-left:20px;padding-right:20px}main{padding:20px 20px 80px;gap:24px}aside{max-width:none;flex:1 1 100%;flex-direction:row;flex-wrap:wrap;gap:12px}aside section{flex:1 1 190px}.stage{flex:1 1 100%}.paper{padding:35px 28px}.pop{right:auto;left:0;width:min(360px,90vw)}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important}}
 
+
+/* Contextual image editing, without changing the writing interface. */
+.image-controls{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:8px 6px 12px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);margin-bottom:12px}
+.image-controls .tool{min-height:32px}
+.image-controls input[type="range"]{width:110px;accent-color:var(--ink)}
+.ed figure{margin:16px 0;display:block}
+.ed figure[data-align="left"]{text-align:left}
+.ed figure[data-align="center"]{text-align:center}
+.ed figure[data-align="right"]{text-align:right}
+.ed figure img{display:inline-block;vertical-align:middle;max-width:100%;height:auto;margin:0;cursor:pointer}
+.ed figure img.selected-image{outline:2px solid var(--ink);outline-offset:3px}
+.ed[contenteditable="false"] figure img{cursor:default}
