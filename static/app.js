@@ -7,6 +7,7 @@
   let users = [], me = 1, docs = [], current = null, dirty = false;
   let filter = 'all', shareOpen = false, shareRole = 'edit', saving = false, saveTimer = null, noticeTimer;
   const editor = $('editor'), title = $('title');
+  let selectedImage = null, draggedFigure = null;
 
   const escape = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const userName = id => (users.find(u => u.id === id)?.name ?? `User ${id}`).toLowerCase();
@@ -84,7 +85,10 @@
     if (!d) return;
     title.value = d.title;
     title.readOnly = !editable();
+    selectedImage = null;
+    $('imageControls').hidden = true;
     editor.innerHTML = d.content || '<p><br></p>';
+    editor.querySelectorAll('img').forEach(img=>img.setAttribute('draggable','true'));
     editor.contentEditable = editable() ? 'true' : 'false';
     editor.setAttribute('aria-readonly', String(!editable()));
     document.querySelectorAll('.toolbar [data-cmd],.toolbar [data-block],#renameBtn').forEach(b=>b.disabled=!editable());
@@ -142,25 +146,15 @@
   }
   async function importFile(file) {
     if (!file) return;
-    const name = file.name.toLowerCase();
-    if (/\.(txt|md|markdown)$/.test(name)) {
-      const form = new FormData();form.append('file',file);form.append('user_id',me);
-      const d = await api('/api/import',{method:'POST',body:form});await loadDocs();await openDoc(d.id);
-    } else if (name.endsWith('.docx')) {
-      if (!window.mammoth) throw Error('.docx importer could not load');
-      const result = await window.mammoth.convertToHtml({arrayBuffer:await file.arrayBuffer()});
-      const d=await api('/api/documents',json('POST',{user_id:me,title:file.name.slice(0,-5).slice(0,120)}));
-      await api(`/api/documents/${d.id}`,json('PATCH',{user_id:me,content:result.value}));
-      await loadDocs();await openDoc(d.id);
-    } else if (file.type.startsWith('image/')) {
-      const src=await resizeImage(file);
-      if (current && editable()) insertImage(src);
-      else {const d=await api('/api/documents',json('POST',{user_id:me,title:file.name.slice(0,120)}));await loadDocs();await openDoc(d.id);insertImage(src);}
-    } else {throw Error('Use .txt, .md, .docx or a PNG/JPEG/WebP image');}
+    // A picker can be overridden. Enforce the text-only boundary here too.
+    if (!/\.(txt|md)$/i.test(file.name)) throw Error('Upload accepts only .txt and .md. Use [+ image] for pictures.');
+    const form = new FormData();form.append('file',file);form.append('user_id',me);
+    const d = await api('/api/import',{method:'POST',body:form});
+    await loadDocs();await openDoc(d.id);
     notice('imported '+file.name);
   }
   function resizeImage(file) {
-    if (!['image/jpeg','image/png','image/webp'].includes(file.type)) return Promise.reject(Error('Please choose a PNG, JPEG, or WebP image'));
+    if (!file.type.startsWith('image/')) return Promise.reject(Error('Use [+ image] to choose an image file'));
     return new Promise((resolve,reject)=>{
       const img=new Image(),url=URL.createObjectURL(file);
       img.onload=()=>{
@@ -176,9 +170,77 @@
       img.src=url;
     });
   }
+  function imageFigure(img) {
+    let figure = img.closest('figure');
+    if (!figure) {
+      figure = document.createElement('figure');
+      figure.dataset.align = 'center';
+      const parent = img.parentElement;
+      if (parent?.tagName === 'P' && parent.textContent.trim() === '' && parent.querySelectorAll('img').length === 1) {
+        parent.replaceWith(figure);
+      } else {
+        img.before(figure);
+      }
+      figure.appendChild(img);
+      changed();
+    }
+    return figure;
+  }
+  function selectImage(img) {
+    if (selectedImage) selectedImage.classList.remove('selected-image');
+    selectedImage = img && editor.contains(img) && editable() ? img : null;
+    $('imageControls').hidden = !selectedImage;
+    if (selectedImage) {
+      selectedImage.classList.add('selected-image');
+      const fig = imageFigure(selectedImage);
+      $('imageSize').value = Math.min(700, Math.max(120,Number(selectedImage.getAttribute('width'))||400));
+      document.querySelectorAll('[data-img-align]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.imgAlign===fig.dataset.align)));
+    }
+  }
   function insertImage(src) {
     if (!editable()) return;
-    editor.focus();document.execCommand('insertHTML',false,`<img src="${escape(src)}" alt="Inserted image"><p><br></p>`);changed();
+    editor.focus();
+    document.execCommand('insertHTML',false,'<figure data-align="center"><img src="'+escape(src)+'" alt="Inserted image" width="400"></figure><p><br></p>');
+    const imgs = [...editor.querySelectorAll('img')];
+    if (imgs.length) {imgs[imgs.length-1].setAttribute('draggable','true');selectImage(imgs[imgs.length-1]);}
+    changed();
+  }
+  function setImageWidth(px) {
+    if (!selectedImage || !editable()) return;
+    selectedImage.setAttribute('width',String(Math.max(120, Math.min(700,Number(px)||400))));
+    changed();
+  }
+  function setImageAlignment(where) {
+    if (!selectedImage || !editable()) return;
+    imageFigure(selectedImage).dataset.align = where;
+    selectImage(selectedImage);changed();
+  }
+  // Fast center-crop presets keep this assessment prototype deliberately small.
+  async function cropImage(ratio) {
+    if (!selectedImage || !editable()) return;
+    const target = selectedImage;
+    const source = new Image();
+    source.src = target.src;
+    await source.decode();
+    const w = source.naturalWidth, h = source.naturalHeight;
+    const cropW = Math.min(w,h*ratio), cropH = Math.min(h,w/ratio);
+    const out = document.createElement('canvas');
+    const scale = Math.min(1,1000/Math.max(cropW,cropH));
+    out.width = Math.max(1,Math.round(cropW*scale));
+    out.height = Math.max(1,Math.round(cropH*scale));
+    out.getContext('2d').drawImage(source,(w-cropW)/2,(h-cropH)/2,cropW,cropH,0,0,out.width,out.height);
+    let data = out.toDataURL('image/jpeg',.74);
+    if (data.length>MAX_IMAGE_BYTES) data=out.toDataURL('image/jpeg',.4);
+    if (data.length>MAX_IMAGE_BYTES) throw Error('Cropped image is too large to save');
+    target.src=data;changed();notice('image cropped · center');
+  }
+  function moveImage(direction) {
+    if (!selectedImage || !editable()) return;
+    const fig=imageFigure(selectedImage);
+    const other=direction==='up'?fig.previousElementSibling:fig.nextElementSibling;
+    if (!other) {notice('image is already at the edge');return;}
+    if (direction==='up') other.before(fig); else other.after(fig);
+    changed();
   }
   function format(cmd,block) {
     if (!editable()) return;
@@ -198,6 +260,10 @@
     if (first) await openDoc(first.id); else renderDoc();
     document.addEventListener('click',handleError(async e=>{
       const b=e.target.closest('button');if(!b) return;
+      if (b.dataset.imgAlign) return setImageAlignment(b.dataset.imgAlign);
+      if (b.dataset.imgCrop) return cropImage(Number(b.dataset.imgCrop));
+      if (b.dataset.imgMove) return moveImage(b.dataset.imgMove);
+      if (b.dataset.imgDeselect) return selectImage(null);
       if (b.dataset.open) return openDoc(Number(b.dataset.open));
       if (b.dataset.filter) {filter=b.dataset.filter;return renderLists();}
       if (b.dataset.toggle) {const a=current?.access.find(x=>x.user_id===Number(b.dataset.toggle));return a && grant(a.user_id,a.role==='edit'?'view':'edit');}
@@ -215,6 +281,28 @@
     $('upload').addEventListener('change',handleError(async e=>{const files=[...e.target.files];e.target.value='';for(const file of files) await importFile(file);}));
     $('imgInput').addEventListener('change',handleError(async e=>{const f=e.target.files?.[0];e.target.value='';if(f)insertImage(await resizeImage(f));}));
     title.addEventListener('input',changed);editor.addEventListener('input',changed);
+    $('imageSize').addEventListener('input',e=>setImageWidth(e.target.value));
+    editor.addEventListener('click',e=>{const img=e.target.closest('img');if(img)selectImage(img);});
+    // Drag an image onto another document block to reorder it.
+    editor.addEventListener('dragstart',e=>{
+      const img=e.target.closest('img');
+      if (!img || !editable()) return;
+      selectImage(img);draggedFigure=imageFigure(img);
+      e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain','ruth-docs-image');
+    });
+    editor.addEventListener('dragover',e=>{if(draggedFigure){e.preventDefault();e.dataTransfer.dropEffect='move';}});
+    editor.addEventListener('drop',e=>{
+      if (!draggedFigure) return;
+      e.preventDefault();
+      const target=e.target.closest('figure,p,div,h1,h2,h3,ul,ol,blockquote');
+      if (target && target!==draggedFigure && editor.contains(target) && !draggedFigure.contains(target)) {
+        const rect=target.getBoundingClientRect();
+        if(e.clientY < rect.top+rect.height/2) target.before(draggedFigure); else target.after(draggedFigure);
+        changed();
+      }
+      draggedFigure=null;
+    });
+    editor.addEventListener('dragend',()=>{draggedFigure=null;});
     document.querySelector('.toolbar').addEventListener('mousedown',e=>{const b=e.target.closest('[data-cmd],[data-block]');if(!b || b.disabled)return;e.preventDefault();format(b.dataset.cmd,b.dataset.block);});
     document.querySelector('.toolbar').addEventListener('keydown',e=>{const b=e.target.closest('[data-cmd],[data-block]');if(b && (e.key==='Enter'||e.key===' ')){e.preventDefault();format(b.dataset.cmd,b.dataset.block);}});
     document.addEventListener('keydown',handleError(async e=>{if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='s'){e.preventDefault();await save();notice('saved');}}));
