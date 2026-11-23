@@ -6,9 +6,6 @@
 <title>Ruth Docs | documents</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
-<!-- mammoth: converts .docx to HTML in the browser -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.8.0/mammoth.browser.min.js"></script>
-<script>window.mammoth || document.write('<script src="https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js"><\/script>')</script>
 <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
@@ -16,7 +13,7 @@
 <header>
   <span>ruth docs</span>
   <div class="actions">
-    <label class="txtbtn">upload<input id="upload" class="sr" type="file" accept=".txt,.md,.markdown,.docx,image/png,image/jpeg,image/webp" multiple></label>
+    <label class="txtbtn" title="Import .txt or .md documents only">upload<input id="upload" class="sr" type="file" accept=".txt,.md" multiple></label>
     <label style="display:inline-flex;align-items:center;gap:6px"><span class="mono">viewing as</span>
       <select id="me" class="sel">
         
@@ -56,11 +53,24 @@
           <button class="tool" type="button" data-block="p" aria-label="body text">[p]</button>
           <button class="tool" type="button" data-cmd="insertUnorderedList" aria-label="bulleted list">[• list]</button>
           <button class="tool" type="button" data-cmd="insertOrderedList" aria-label="numbered list">[1. list]</button>
-          <label id="imgTool" class="tool">[+ image]<input id="imgInput" class="sr" type="file" accept="image/png,image/jpeg,image/webp"></label>
+          <label id="imgTool" class="tool">[+ image]<input id="imgInput" class="sr" type="file" accept="image/*"></label>
           <span class="spacer"></span>
           <button id="renameBtn" class="tool" type="button" data-action="rename">[rename]</button>
           <button id="shareBtn" class="tool ink" type="button" data-action="share" aria-expanded="false">[share]</button>
           <button id="saveBtn" class="pill" type="button" data-action="save" style="margin-left:10px">saved</button>
+        </div>
+        <div id="imageControls" class="image-controls" role="group" aria-label="Edit selected image" hidden>
+          <span class="mono">image</span>
+          <label class="mono" for="imageSize">size</label>
+          <input id="imageSize" type="range" min="120" max="700" step="10" value="400" aria-label="Image width">
+          <button class="tool" type="button" data-img-align="left">[left]</button>
+          <button class="tool" type="button" data-img-align="center">[center]</button>
+          <button class="tool" type="button" data-img-align="right">[right]</button>
+          <button class="tool" type="button" data-img-crop="1">[crop 1:1]</button>
+          <button class="tool" type="button" data-img-crop="1.3333333">[crop 4:3]</button>
+          <button class="tool" type="button" data-img-move="up">[↑ move]</button>
+          <button class="tool" type="button" data-img-move="down">[↓ move]</button>
+          <button class="tool" type="button" data-img-deselect="true">[close]</button>
         </div>
         <div id="pop" class="pop" role="dialog" aria-label="share document" hidden></div>
       </div>
