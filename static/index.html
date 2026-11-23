@@ -14,11 +14,7 @@
   <span>ruth docs</span>
   <div class="actions">
     <label class="txtbtn" title="Import .txt or .md documents only">upload<input id="upload" class="sr" type="file" accept=".txt,.md" multiple></label>
-    <label style="display:inline-flex;align-items:center;gap:6px"><span class="mono">viewing as</span>
-      <select id="me" class="sel">
-        
-      </select>
-    </label>
+    <button id="accountBtn" type="button" class="txtbtn account-btn" data-action="switch-account" aria-label="Switch demo account">signed in as <strong id="accountName">ruth</strong> <span aria-hidden="true">⌄</span></button>
     <button class="pill" type="button" data-action="new">new document</button>
   </div>
 </header>
@@ -37,7 +33,7 @@
     <div id="doc" class="doc">
       <div class="meta">
         <span class="mono" style="display:inline-flex;align-items:center;gap:10px"><span id="ownerDot" class="dot"></span><span id="ownerLine"></span></span>
-        <span id="saveLine" class="mono"></span>
+        <div class="meta-stats"><span id="wordCount" class="mono" aria-live="off">0 words</span><span id="saveLine" class="mono"></span></div>
       </div>
 
       <input id="title" class="title" aria-label="document title" placeholder="untitled">
@@ -57,6 +53,7 @@
           <span class="spacer"></span>
           <button id="renameBtn" class="tool" type="button" data-action="rename">[rename]</button>
           <button id="shareBtn" class="tool ink" type="button" data-action="share" aria-expanded="false">[share]</button>
+          <button id="historyBtn" class="tool" type="button" data-action="history" aria-expanded="false">[history]</button>
           <button id="saveBtn" class="pill" type="button" data-action="save" style="margin-left:10px">saved</button>
         </div>
         <div id="imageControls" class="image-controls" role="group" aria-label="Edit selected image" hidden>
@@ -73,6 +70,7 @@
           <button class="tool" type="button" data-img-deselect="true">[close]</button>
         </div>
         <div id="pop" class="pop" role="dialog" aria-label="share document" hidden></div>
+        <div id="versionsPop" class="pop versions-pop" role="dialog" aria-label="document version history" hidden></div>
       </div>
 
       <article class="paper">
@@ -86,6 +84,16 @@
     </div>
   </section>
 </main>
+
+<div id="loginGate" class="login-gate" role="dialog" aria-modal="true" aria-label="Choose a demo account" hidden>
+  <section class="login-sheet">
+    <span class="mono">ruth docs · demo</span>
+    <h1>Welcome to your writing space.</h1>
+    <p>Choose an account to continue.</p>
+    <div id="loginChoices" class="login-choices"></div>
+    <small>Demo login only. No password or verified identity. Please use sample documents.</small>
+  </section>
+</div>
 
 <script src="/static/app.js" defer></script>
 </body>
