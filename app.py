@@ -95,6 +95,13 @@ def create_app(db_path: str | None = None) -> FastAPI:
           user_id INTEGER NOT NULL REFERENCES users(id),
           role TEXT NOT NULL DEFAULT 'edit',
           PRIMARY KEY (document_id,user_id));
+        CREATE TABLE IF NOT EXISTS document_versions(
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          document_id INTEGER NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+          title TEXT NOT NULL, content TEXT NOT NULL,
+          saved_by INTEGER NOT NULL REFERENCES users(id),
+          created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%d %H:%M:%f', 'now')));
+        CREATE INDEX IF NOT EXISTS idx_versions_doc ON document_versions(document_id,id DESC);
         """)
         if "role" not in [r[1] for r in db.execute("PRAGMA table_info(shares)")]:
             db.execute("ALTER TABLE shares ADD COLUMN role TEXT NOT NULL DEFAULT 'edit'")
@@ -124,6 +131,27 @@ def create_app(db_path: str | None = None) -> FastAPI:
         if doc is None:
             raise HTTPException(404, "Document not found or not shared with this user")
         return doc
+
+    def require_editor(db, doc_id: int, user_id: int):
+        doc = get_accessible(db,doc_id,user_id)
+        if doc["owner_id"] != user_id:
+            share = db.execute("SELECT role FROM shares WHERE document_id=? AND user_id=?",
+                               (doc_id,user_id)).fetchone()
+            if not share or share["role"] != "edit":
+                raise HTTPException(403,"View-only users cannot edit documents")
+        return doc
+
+    def create_version(db,doc,user_id):
+        latest=db.execute("SELECT id,title,content FROM document_versions WHERE document_id=? ORDER BY id DESC LIMIT 1",
+                          (doc["id"],)).fetchone()
+        if latest and latest["title"]==doc["title"] and latest["content"]==doc["content"]:
+            return latest["id"],False
+        row=db.execute("INSERT INTO document_versions(document_id,title,content,saved_by) VALUES(?,?,?,?)",
+                       (doc["id"],doc["title"],doc["content"],user_id))
+        db.execute("""DELETE FROM document_versions WHERE document_id=? AND id NOT IN
+            (SELECT id FROM document_versions WHERE document_id=? ORDER BY id DESC LIMIT 15)""",
+            (doc["id"],doc["id"]))
+        return row.lastrowid,True
 
     @app.get("/")
     def index():
@@ -176,12 +204,7 @@ def create_app(db_path: str | None = None) -> FastAPI:
     @app.patch("/api/documents/{doc_id}")
     def update_document(doc_id: int, payload: UpdateDocument):
         with connect() as db:
-            doc = get_accessible(db, doc_id, payload.user_id)
-            if doc["owner_id"] != payload.user_id:
-                share = db.execute("SELECT role FROM shares WHERE document_id=? AND user_id=?",
-                                   (doc_id, payload.user_id)).fetchone()
-                if share is None or share["role"] != "edit":
-                    raise HTTPException(403, "View-only users cannot edit documents")
+            doc = require_editor(db, doc_id, payload.user_id)
             updates, values = [], []
             if payload.title is not None:
                 updates.append("title=?")
@@ -195,6 +218,36 @@ def create_app(db_path: str | None = None) -> FastAPI:
             values.append(doc_id)
             db.execute(f"UPDATE documents SET {', '.join(updates)} WHERE id=?", values)
             return {"saved": True}
+
+    @app.get("/api/documents/{doc_id}/versions")
+    def list_versions(doc_id:int,user_id:int):
+        with connect() as db:
+            get_accessible(db,doc_id,user_id)
+            return [dict(r) for r in db.execute("""SELECT v.id,v.title,v.created_at,u.name AS saved_by_name
+                FROM document_versions v JOIN users u ON u.id=v.saved_by
+                WHERE v.document_id=? ORDER BY v.id DESC LIMIT 15""",(doc_id,))]
+
+    @app.post("/api/documents/{doc_id}/versions",status_code=201)
+    def save_version(doc_id:int,user_id:int):
+        with connect() as db:
+            doc=require_editor(db,doc_id,user_id)
+            version_id,created=create_version(db,doc,user_id)
+            return {"id":version_id,"created":created}
+
+    @app.post("/api/documents/{doc_id}/versions/{version_id}/restore")
+    def restore_version(doc_id:int,version_id:int,user_id:int):
+        with connect() as db:
+            doc=require_editor(db,doc_id,user_id)
+            version=db.execute("SELECT * FROM document_versions WHERE document_id=? AND id=?",
+                               (doc_id,version_id)).fetchone()
+            if version is None:
+                raise HTTPException(404,"Version not found for this document")
+            if doc["title"]==version["title"] and doc["content"]==version["content"]:
+                return {"restored":False,"reason":"already_current"}
+            create_version(db,doc,user_id)  # recovery snapshot before restore
+            db.execute("UPDATE documents SET title=?,content=?,updated_at=datetime('now') WHERE id=?",
+                       (version["title"],version["content"],doc_id))
+            return {"restored":True}
 
     @app.post("/api/documents/{doc_id}/share", status_code=201)
     def share_document(doc_id: int, payload: ShareDocument):
