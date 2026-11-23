@@ -21,7 +21,7 @@ from pydantic import BaseModel, Field
 BASE = Path(__file__).resolve().parent
 MAX_UPLOAD = 1024 * 1024
 MAX_HTML = 800_000
-ALLOWED_TAGS = ["p", "br", "strong", "b", "em", "i", "u", "h1", "h2", "h3", "ul", "ol", "li", "blockquote", "div", "span", "img", "code"]
+ALLOWED_TAGS = ["p", "br", "strong", "b", "em", "i", "u", "h1", "h2", "h3", "ul", "ol", "li", "blockquote", "div", "span", "img", "code", "figure"]
 
 
 class CreateDocument(BaseModel):
@@ -45,6 +45,10 @@ def sanitize_rich_text(value: str) -> str:
     # Images may be embedded only as bounded PNG/JPEG/WebP data URLs. Reject SVG,
     # external tracking pixels, event handlers and executable markup.
     def attr_filter(tag: str, name: str, content: str) -> bool:
+        if tag == "figure" and name == "data-align":
+            return content in {"left", "center", "right"}
+        if tag == "img" and name == "width":
+            return content.isdigit() and 80 <= int(content) <= 1200
         if tag == "img" and name == "alt":
             return True
         if tag == "img" and name == "src":
