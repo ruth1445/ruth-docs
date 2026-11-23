@@ -51,3 +51,17 @@ def test_view_only_permissions_revoke_and_image_safety(tmp_path):
     assert client.patch(f'/api/documents/{doc_id}',json={'user_id':2,'title':'allowed'}).status_code == 200
     assert client.delete(f'/api/documents/{doc_id}/share/2?user_id=1').status_code == 200
     assert client.get(f'/api/documents/{doc_id}',params={'user_id':2}).status_code == 404
+
+
+def test_image_dimensions_and_alignment_survive_sanitization(tmp_path):
+    client = TestClient(create_app(str(tmp_path / 'img.db')))
+    doc_id = client.post('/api/documents',json={'user_id':1,'title':'Image test'}).json()['id']
+    content = '<figure data-align="right"><img width="460" alt="photo" src="data:image/png;base64,aGVsbG8="></figure>'
+    assert client.patch(f'/api/documents/{doc_id}',json={'user_id':1,'content':content}).status_code==200
+    result=client.get(f'/api/documents/{doc_id}',params={'user_id':1}).json()['content']
+    assert '<figure data-align="right">' in result
+    assert 'width="460"' in result
+    blocked='<figure data-align="nonsense"><img width="999999" src="data:image/png;base64,aGVsbG8="></figure>'
+    client.patch(f'/api/documents/{doc_id}',json={'user_id':1,'content':blocked})
+    result=client.get(f'/api/documents/{doc_id}',params={'user_id':1}).json()['content']
+    assert 'nonsense' not in result and '999999' not in result
