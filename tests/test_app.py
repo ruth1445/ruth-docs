@@ -18,8 +18,8 @@ def test_create_save_share_and_permissions(tmp_path):
     assert client.post(f'/api/documents/{document_id}/share', json={'user_id':1,'target_user_id':2}).status_code==201
     assert client.get(f'/api/documents/{document_id}',params={'user_id':2}).status_code==200
     assert client.get(f'/api/documents/{document_id}',params={'user_id':3}).status_code==404
-    assert client.patch(f'/api/documents/{document_id}',json={'user_id':2,'title':'Edited by Ava'}).status_code==200
-    assert client.get(f'/api/documents/{document_id}',params={'user_id':1}).json()['title']=='Edited by Ava'
+    assert client.patch(f'/api/documents/{document_id}',json={'user_id':2,'title':'Edited by Leen'}).status_code==200
+    assert client.get(f'/api/documents/{document_id}',params={'user_id':1}).json()['title']=='Edited by Leen'
 
 
 def test_import_validation_and_persistence(tmp_path):
