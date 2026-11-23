@@ -5,7 +5,7 @@
   const $ = id => document.getElementById(id);
   const MAX_IMAGE_BYTES = 450000;
   let users = [], me = 1, docs = [], current = null, dirty = false;
-  let filter = 'all', shareOpen = false, shareRole = 'edit', saving = false, saveTimer = null, noticeTimer;
+  let filter = 'all', shareOpen = false, versionsOpen = false, shareRole = 'edit', saving = false, saveTimer = null, noticeTimer;
   const editor = $('editor'), title = $('title');
   let selectedImage = null, draggedFigure = null;
 
@@ -28,11 +28,65 @@
   function changed() {
     if (!editable()) return;
     dirty = true;
+    updateWordCount();
     renderMeta();
     clearTimeout(saveTimer);
     saveTimer = setTimeout(() => save().catch(e => notice(e.message)), 1300);
   }
   const time = s => s ? new Date(s.endsWith('Z') ? s : s.replace(' ', 'T')+'Z').toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}).toLowerCase() : 'now';
+
+  function updateWordCount() {
+    const text=editor.innerText || editor.textContent || '';
+    const words=text.match(/[\p{L}\p{N}]+(?:['’][\p{L}\p{N}]+)*/gu)||[];
+    $('wordCount').textContent=`${words.length.toLocaleString()} ${words.length===1?'word':'words'}`;
+  }
+  function renderSession() {$('accountName').textContent=userName(me);}
+  function showLogin() {
+    $('loginChoices').innerHTML=users.map(u=>`<button class="login-choice" type="button" data-login-user="${u.id}"><span>${escape(u.name)}</span><span class="mono">continue →</span></button>`).join('');
+    $('loginGate').hidden=false;
+    $('loginChoices').querySelector('button')?.focus();
+  }
+  async function chooseLogin(id) {
+    if(!users.some(u=>u.id===id)) return;
+    if(id!==me) await switchUser(id);
+    me=id;sessionStorage.setItem('ruth-docs-demo-user',String(id));renderSession();
+    $('loginGate').hidden=true;
+    if(!current) {
+      await loadDocs();
+      const saved=Number(sessionStorage.getItem('ruth-docs-active'));
+      const first=docs.find(d=>d.id===saved)||docs[0];
+      if(first) await openDoc(first.id);else renderDoc();
+    }
+  }
+  function versionTime(s) {
+    return new Date(s.replace(' ','T')+'Z').toLocaleString(undefined,{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
+  }
+  async function renderVersions() {
+    const pop=$('versionsPop');
+    $('historyBtn').setAttribute('aria-expanded',String(versionsOpen));
+    if(!versionsOpen||!current) {pop.hidden=true;return;}
+    const history=await api(`/api/documents/${current.id}/versions?user_id=${me}`);
+    pop.innerHTML=`<div class="pop-head"><span class="mono">version history</span><button class="tool" type="button" data-action="history">[close]</button></div>
+      <p class="history-help">Save a version at a useful stopping point. Autosave keeps the latest draft.</p>
+      ${editable()?'<button class="pill" type="button" data-action="save-version">save version</button>':''}
+      <ul class="history-list">${history.length?history.map(v=>`<li><div class="history-copy"><strong>${escape(v.title)}</strong><small>${escape(versionTime(v.created_at))} · ${escape(v.saved_by_name)}</small></div>${editable()?`<button class="tool" type="button" data-restore-version="${v.id}">[restore]</button>`:''}</li>`).join(''):'<li class="history-empty">No versions saved yet.</li>'}</ul>`;
+    pop.hidden=false;
+  }
+  async function saveVersion() {
+    await save();
+    if(!current||!editable())return;
+    const result=await api(`/api/documents/${current.id}/versions?user_id=${me}`,{method:'POST'});
+    notice(result.created?'version saved':'latest version already saved');
+    await renderVersions();
+  }
+  async function restoreVersion(id) {
+    if(!current||!editable())return;
+    if(!confirm('Restore this version? The current draft will be saved to history first.'))return;
+    await save();
+    const result=await api(`/api/documents/${current.id}/versions/${id}/restore?user_id=${me}`,{method:'POST'});
+    await refreshDoc();await loadDocs();await renderVersions();
+    notice(result.restored?'version restored · previous draft kept':'already showing this version');
+  }
 
   async function loadDocs() {
     docs = await api(`/api/documents?user_id=${me}`);
@@ -94,13 +148,14 @@
     document.querySelectorAll('.toolbar [data-cmd],.toolbar [data-block],#renameBtn').forEach(b=>b.disabled=!editable());
     $('imgInput').disabled = !editable();
     $('imgTool').classList.toggle('off',!editable());
-    renderMeta();renderShare();renderLists();
+    updateWordCount();renderMeta();renderShare();renderLists();
   }
   async function openDoc(id) {
     if (current?.id === id) return;
     await save();
     current = await api(`/api/documents/${id}?user_id=${me}`);
-    dirty = false;shareOpen = false;
+    dirty = false;shareOpen = false;versionsOpen = false;
+    $('versionsPop').hidden=true;
     sessionStorage.setItem('ruth-docs-active',String(id));
     renderDoc();
   }
@@ -129,7 +184,8 @@
     title.focus();title.select();
   }
   async function switchUser(id) {
-    await save(); me=id;current=null;dirty=false;shareOpen=false;
+    await save(); me=id;current=null;dirty=false;shareOpen=false;versionsOpen=false;
+    $('versionsPop').hidden=true;renderSession();
     sessionStorage.removeItem('ruth-docs-active');
     await loadDocs();
     if (docs.length) await openDoc(docs[0].id); else renderDoc();
@@ -252,14 +308,20 @@
   function handleError(fn) {return async (...args)=>{try{await fn(...args);}catch(e){notice(e.message);}};}
   async function init() {
     users=await api('/api/users');
-    $('me').replaceChildren(...users.map(u=>new Option(u.name.toLowerCase(),u.id)));
-    $('me').value=String(me);
-    await loadDocs();
-    const saved=Number(sessionStorage.getItem('ruth-docs-active'));
-    const first=docs.find(d=>d.id===saved) || docs[0];
-    if (first) await openDoc(first.id); else renderDoc();
+    const savedUser=Number(sessionStorage.getItem('ruth-docs-demo-user'));
+    const returning=users.some(u=>u.id===savedUser);
+    me=returning?savedUser:1;
+    renderSession();
+    if(returning) {
+      await loadDocs();
+      const saved=Number(sessionStorage.getItem('ruth-docs-active'));
+      const first=docs.find(d=>d.id===saved)||docs[0];
+      if(first) await openDoc(first.id);else renderDoc();
+    } else showLogin();
     document.addEventListener('click',handleError(async e=>{
       const b=e.target.closest('button');if(!b) return;
+      if(b.dataset.loginUser)return chooseLogin(Number(b.dataset.loginUser));
+      if(b.dataset.restoreVersion)return restoreVersion(Number(b.dataset.restoreVersion));
       if (b.dataset.imgAlign) return setImageAlignment(b.dataset.imgAlign);
       if (b.dataset.imgCrop) return cropImage(Number(b.dataset.imgCrop));
       if (b.dataset.imgMove) return moveImage(b.dataset.imgMove);
@@ -271,13 +333,15 @@
       if (b.dataset.action==='new') return newDoc();
       if (b.dataset.action==='save') {await save();notice('saved');return;}
       if (b.dataset.action==='rename') {title.focus();title.select();return;}
-      if (b.dataset.action==='share') {shareOpen=!shareOpen;return renderShare();}
+      if(b.dataset.action==='switch-account')return showLogin();
+      if(b.dataset.action==='save-version')return saveVersion();
+      if(b.dataset.action==='history') {versionsOpen=!versionsOpen;shareOpen=false;renderShare();return renderVersions();}
+      if (b.dataset.action==='share') {shareOpen=!shareOpen;versionsOpen=false;$('versionsPop').hidden=true;$('historyBtn').setAttribute('aria-expanded','false');return renderShare();}
     }));
     document.addEventListener('submit',handleError(async e=>{
       if(e.target.id!=='shareForm')return;
       e.preventDefault();shareRole=$('shareRole').value;await grant($('shareIn').value,shareRole);
     }));
-    $('me').addEventListener('change',handleError(async e=>switchUser(Number(e.target.value))));
     $('upload').addEventListener('change',handleError(async e=>{const files=[...e.target.files];e.target.value='';for(const file of files) await importFile(file);}));
     $('imgInput').addEventListener('change',handleError(async e=>{const f=e.target.files?.[0];e.target.value='';if(f)insertImage(await resizeImage(f));}));
     title.addEventListener('input',changed);editor.addEventListener('input',changed);
