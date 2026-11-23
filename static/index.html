@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ruth Docs | documents</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<!-- mammoth: converts .docx to HTML in the browser -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.8.0/mammoth.browser.min.js"></script>
+<script>window.mammoth || document.write('<script src="https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js"><\/script>')</script>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<header>
+  <span>ruth docs</span>
+  <div class="actions">
+    <label class="txtbtn">upload<input id="upload" class="sr" type="file" accept=".txt,.md,.markdown,.docx,image/png,image/jpeg,image/webp" multiple></label>
+    <label style="display:inline-flex;align-items:center;gap:6px"><span class="mono">viewing as</span>
+      <select id="me" class="sel">
+        
+      </select>
+    </label>
+    <button class="pill" type="button" data-action="new">new document</button>
+  </div>
+</header>
+
+<nav aria-label="filter documents">
+  <button class="filt" type="button" data-filter="all">[all]</button>
+  <button class="filt" type="button" data-filter="mine">[mine]</button>
+  <button class="filt" type="button" data-filter="shared">[shared with me]</button>
+  <span id="notice" class="mono" role="status"></span>
+</nav>
+
+<main>
+  <aside id="lists"></aside>
+
+  <section class="stage">
+    <div id="doc" class="doc">
+      <div class="meta">
+        <span class="mono" style="display:inline-flex;align-items:center;gap:10px"><span id="ownerDot" class="dot"></span><span id="ownerLine"></span></span>
+        <span id="saveLine" class="mono"></span>
+      </div>
+
+      <input id="title" class="title" aria-label="document title" placeholder="untitled">
+
+      <div class="toolwrap">
+        <div class="toolbar" role="toolbar" aria-label="formatting">
+          <button class="tool" type="button" data-cmd="bold" aria-label="bold">[b]</button>
+          <button class="tool" type="button" data-cmd="italic" aria-label="italic">[i]</button>
+          <button class="tool" type="button" data-cmd="underline" aria-label="underline">[u]</button>
+          <button class="tool" type="button" data-block="h1" aria-label="heading 1">[h1]</button>
+          <button class="tool" type="button" data-block="h2" aria-label="heading 2">[h2]</button>
+          <button class="tool" type="button" data-block="h3" aria-label="heading 3">[h3]</button>
+          <button class="tool" type="button" data-block="p" aria-label="body text">[p]</button>
+          <button class="tool" type="button" data-cmd="insertUnorderedList" aria-label="bulleted list">[• list]</button>
+          <button class="tool" type="button" data-cmd="insertOrderedList" aria-label="numbered list">[1. list]</button>
+          <label id="imgTool" class="tool">[+ image]<input id="imgInput" class="sr" type="file" accept="image/png,image/jpeg,image/webp"></label>
+          <span class="spacer"></span>
+          <button id="renameBtn" class="tool" type="button" data-action="rename">[rename]</button>
+          <button id="shareBtn" class="tool ink" type="button" data-action="share" aria-expanded="false">[share]</button>
+          <button id="saveBtn" class="pill" type="button" data-action="save" style="margin-left:10px">saved</button>
+        </div>
+        <div id="pop" class="pop" role="dialog" aria-label="share document" hidden></div>
+      </div>
+
+      <article class="paper">
+        <div id="editor" class="ed" role="textbox" aria-multiline="true" aria-label="document body" spellcheck="true"></div>
+      </article>
+    </div>
+
+    <div id="empty" class="empty" hidden>
+      <span class="mono">no document open</span>
+      <button class="pill" type="button" data-action="new">new document</button>
+    </div>
+  </section>
+</main>
+
+<script src="/static/app.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,13 @@
+# Suggested walkthrough: 3–5 minutes
+
+**0:00–0:30** Explain the goal and deliberate scope. Show the clean Ruth Docs interface.
+
+**0:30–1:30** Create a document, format text, save, refresh, and verify that the document stays open and content remains.
+
+**1:30–2:15** Import a `.txt` or `.md` file (optionally DOCX) and demonstrate editable content.
+
+**2:15–3:10** Share with Ava as `can view`. Switch to Ava and show read-only mode; as Ruth, change to `can edit` and demonstrate the difference.
+
+**3:10–4:10** Explain the backend and SQLite storage, the access-control test, and where AI aided your actual workflow.
+
+**4:10–4:30** Name boundaries: simulated users (not secure auth), legacy editor toolbar, and ephemeral persistence risk on hosted free tier.
