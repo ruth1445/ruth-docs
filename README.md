@@ -1,8 +1,6 @@
 # Ruth Docs
 
-Ruth Docs is a document editor I built for the assessment, with features inspired by Substack, Notion, and Google Docs. I kept the interface minimal and focused on the main writing workflow, including editing, saving, sharing, and reopening documents.
-
-The backend is built with Python and FastAPI, and SQLite stores the users, documents, access permissions, and version checkpoints. The frontend uses HTML, CSS, and JavaScript.
+Ruth Docs is a document editor I built for an assessment.
 
 ## Running it locally
 
