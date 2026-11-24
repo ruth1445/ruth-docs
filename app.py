@@ -107,11 +107,18 @@ def create_app(db_path: str | None = None) -> FastAPI:
             db.execute("ALTER TABLE shares ADD COLUMN role TEXT NOT NULL DEFAULT 'edit'")
         for uid, name in [(1, "Ruth"), (2, "Leen"), (3, "Arden")]:
             db.execute("INSERT INTO users(id,name) VALUES(?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name", (uid, name))
-        count = db.execute("SELECT COUNT(*) FROM documents").fetchone()[0]
-        if count == 0:
-            db.execute("INSERT INTO documents(owner_id,title,content) VALUES (?,?,?)", (
-                1, "Field Notes", "<h2>Field Notes</h2><p>An observation is not yet an explanation.</p>"
-                "<p>Begin with what you know. Mark what you assume. Return to what remains uncertain.</p>"))
+        # Remove only the untouched demo seed from older deployments.
+        # Preserve any document the user edited, shared, or versioned.
+        sample_content = (
+            "<h2>Field Notes</h2><p>An observation is not yet an explanation.</p>"
+            "<p>Begin with what you know. Mark what you assume. Return to what remains uncertain.</p>"
+        )
+        db.execute("""DELETE FROM documents WHERE owner_id=1 AND title='Field Notes'
+            AND content=? AND NOT EXISTS (
+              SELECT 1 FROM shares WHERE document_id=documents.id
+            ) AND NOT EXISTS (
+              SELECT 1 FROM document_versions WHERE document_id=documents.id
+            )""", (sample_content,))
 
     app = FastAPI(title="Ruth Docs", version="0.1-demo")
     app.mount("/static", StaticFiles(directory=BASE / "static"), name="static")
