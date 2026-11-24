@@ -10,4 +10,4 @@ I kept autosave along with a manual save button, and added a simple version hist
 
 I chose SQLite because it was simple to use for a small prototype. One limitation is that the live version is running on Render's free tier, so the database might be lost when the service restarts or redeploys.
 
-I left out actual login, page breaks, downloads in different formats, and real-time collaboration. With more time, I'd first add authentication and a persistent database, then improve the document editor and collaboration features.
+I left out actual login, page breaks, downloads in different formats, and real-time collaboration.
