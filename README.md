@@ -30,11 +30,7 @@ Click **[history] → save version** to record a checkpoint; edit the document, 
 
 ## Important limitations
 
-- **The demo login is NOT authentication**. Any visitor can pretend to be a demo user by changing the supplied user ID. Do not enter sensitive or personal data.
-- Simulated sharing is only a demonstration of role-based permissions, not secure production identity management.
-- Rich-text editing uses browser `execCommand`, a legacy API; consider a modern editor library for production.
-- Image support embeds size-limited data URLs in SQLite and is not an asset pipeline. Image crops use centered presets, not a freeform cropping interface. Some image formats may not be decodable by every browser.
-- No concurrent editing, conflict resolution, multi-device revision sync, audit logs, or production security audit. Version history is capped at 15 snapshots per document.
+- **The demo login is NOT authentication**.
 - SQLite persists locally, but a Render free deployment usually has an **ephemeral filesystem**. A redeploy/restart may clear the database unless you configure persistent storage. For durable hosting use an appropriate managed database or attached disk.
 
 ## Deployment
