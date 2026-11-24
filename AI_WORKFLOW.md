@@ -1,26 +1,11 @@
-# AI workflow note — personalize before submission
+# AI Workflow
 
-**Do not claim any step you didn't personally perform.** Edit this template to reflect your real process and tools.
+Ruth Docs is a document editor with features inspired by Substack, Notion, and Google Docs. I used Codex for the backend and Claude Design for the frontend. The backend runs on Python and FastAPI, with SQLite as the database. It stores user information, access permissions, and the documents themselves. One caveat is that the app is deployed on Render's free tier, so the data might not survive a redeployment.
 
-## Tools used
-- [List AI tools actually used.]
+I spent the first 15 minutes reading through the assessment, then another 15 minutes figuring out which tasks to delegate to AI. While those were being carried out, I was planning what features to add and what to leave out. I deliberately skipped a real login system and kept the architecture light, mostly because of the time constraints.
 
-## Where AI helped
-- [e.g., converting assessment requirements into a minimal vertical slice.]
-- [e.g., scaffolding FastAPI routes, styling, tests, or documentation.]
+I changed quite a few of the AI suggestions along the way, especially the design. I wanted to keep it minimalistic, and it took several iterations to get to the final version.
 
-## Decisions I made independently
-- [e.g., chose readable editorial styling and synthetic demo users.]
-- [e.g., intentionally omitted real-time collaboration to protect core correctness.]
+For testing, I manually went through the features and also ran pytest.
 
-## AI suggestions I changed or rejected
-- [Only include genuine examples from your actual work.]
-
-## Verification I performed
-- [Record the commands you actually ran, browser behaviors you tested, and results.]
-- [For access control: verify a non-shared user cannot open a document via API.]
-
-## Known limitations
-- Demo switcher is not authentication; client can spoof user ID.
-- No real-time collaboration or conflict resolution.
-- Deployed SQLite may be ephemeral if not using persistent hosting.
+There are still limitations: no page breaks, no option to download documents in different formats, and no real login or authentication system.
