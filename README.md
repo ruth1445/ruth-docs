@@ -1,24 +1,8 @@
-# Ruth Docs
-
-A small document editor with the user's minimalist, typographic UI and a FastAPI + SQLite backend. Built as an **assessment prototype**, not production software.
-
-## Features
-
-- New demo accounts open a blank writing page: gray `Your Title Here` and `start typing..` placeholders disappear when you type. The untouched sample document is removed, but user-created work is preserved.
-- Minimal **demo account chooser** with three synthetic personas and a visible "signed in as" indicator. This is not real authentication.
-- Live **word count**, excluding the document title and image markup.
-- **Version history**: optional named checkpoints via "save version", last 15 snapshots, and one-click restore that first preserves the current draft. Autosave remains separate from checkpoints.
-
-- Create, open, rename, format, and save documents (including an autosave after editing pauses).
-- Bold, italic, underline, headings (H1/H2/H3), bulleted and numbered lists.
-- Import only `.txt` and `.md` from the Upload picker. Insert images separately via [+ image]; click an image for sizing, alignment, centered crop presets (1:1 or 4:3), and move controls.
-- Browse documents owned by or shared with a simulated user; share with `view` or `edit` access, change roles and revoke access.
-- SQLite stores documents and sharing rules; refreshing the page reopens the last selected document in the same browser tab.
-- Server-side access and permission checks, HTML sanitization, basic automated tests.
+Ruth Docs is a document editor built for an assessment. 
 
 ## Run locally
 
-Requires Python 3.11+.
+With Python 3.11+.
 
 ```bash
 python3 -m venv .venv
@@ -55,8 +39,4 @@ Click **[history] → save version** to record a checkpoint; edit the document, 
 
 ## Deployment
 
-The included `render.yaml` provides a demo web service on Render. Connect the repository in Render to deploy. If using an ephemeral filesystem, **do not claim durable persistence across deploys**.
-
-## Submission
-
-See `ARCHITECTURE.md`, `AI_WORKFLOW.md`, `SUBMISSION.md`, and `VIDEO_SCRIPT.md`. Personalize all descriptions of AI usage and testing to what was actually done.
+The included `render.yaml` provides a demo web service on Render. Connect the repository in Render to deploy.
