@@ -14,7 +14,6 @@
 - `README.md` setup, demo path, limitations
 - `ARCHITECTURE.md` decisions and tradeoffs
 - `AI_WORKFLOW.md` actual AI usage and verification (must be personalized)
-- `VIDEO_SCRIPT.md` short recording outline
 
 ## What works
 [Verify, then list completed features; don't paste unchecked claims.]
