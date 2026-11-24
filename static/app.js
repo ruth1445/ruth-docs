@@ -36,15 +36,19 @@
   const time = s => s ? new Date(s.endsWith('Z') ? s : s.replace(' ', 'T')+'Z').toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}).toLowerCase() : 'now';
 
   function updateWordCount() {
-    const text=editor.innerText || editor.textContent || '';
-    const words=text.match(/[\p{L}\p{N}]+(?:['’][\p{L}\p{N}]+)*/gu)||[];
-    $('wordCount').textContent=`${words.length.toLocaleString()} ${words.length===1?'word':'words'}`;
+    // Count only document body words, not its title, image alt text, or UI labels.
+    const text = editor.innerText || editor.textContent || '';
+    const words = text.match(/[\p{L}\p{N}]+(?:['’][\p{L}\p{N}]+)*/gu) || [];
+    $('wordCount').textContent = `${words.length.toLocaleString()} ${words.length===1?'word':'words'}`;
     editor.dataset.empty=String(!text.trim() && !editor.querySelector('img'));
   }
-  function renderSession() {$('accountName').textContent=userName(me);}
+  function renderSession() {
+    $('accountName').textContent = userName(me);
+  }
   function showLogin() {
-    $('loginChoices').innerHTML=users.map(u=>`<button class="login-choice" type="button" data-login-user="${u.id}"><span>${escape(u.name)}</span><span class="mono">continue →</span></button>`).join('');
-    $('loginGate').hidden=false;
+    const gate = $('loginGate');
+    $('loginChoices').innerHTML = users.map(u => `<button class="login-choice" type="button" data-login-user="${u.id}"><span>${escape(u.name)}</span><span class="mono">continue →</span></button>`).join('');
+    gate.hidden = false;
     $('loginChoices').querySelector('button')?.focus();
   }
   async function openLanding() {
@@ -52,44 +56,43 @@
     const saved=Number(sessionStorage.getItem('ruth-docs-active'));
     const first=docs.find(d=>d.id===saved)||docs[0];
     if(first) return openDoc(first.id);
-    // First-time writers land on a blank, editable canvas.
     const created=await api('/api/documents',json('POST',{user_id:me,title:'untitled'}));
     await loadDocs();await openDoc(created.id);
   }
   async function chooseLogin(id) {
-    if(!users.some(u=>u.id===id)) return;
-    if(id!==me) await switchUser(id);
-    me=id;sessionStorage.setItem('ruth-docs-demo-user',String(id));renderSession();
-    $('loginGate').hidden=true;
-    if(!current) await openLanding();
+    if (!users.some(u=>u.id===id)) return;
+    if (id !== me) await switchUser(id);
+    me = id;
+    sessionStorage.setItem('ruth-docs-demo-user',String(me));
+    renderSession();
+    $('loginGate').hidden = true;
+    if (!current) await openLanding();
   }
-  function versionTime(s) {
-    return new Date(s.replace(' ','T')+'Z').toLocaleString(undefined,{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
-  }
+  const formatVersionDate = s => new Date(s.replace(' ','T')+'Z').toLocaleString(undefined,{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
   async function renderVersions() {
     const pop=$('versionsPop');
     $('historyBtn').setAttribute('aria-expanded',String(versionsOpen));
-    if(!versionsOpen||!current) {pop.hidden=true;return;}
+    if (!versionsOpen || !current) {pop.hidden=true;return;}
     const history=await api(`/api/documents/${current.id}/versions?user_id=${me}`);
     pop.innerHTML=`<div class="pop-head"><span class="mono">version history</span><button class="tool" type="button" data-action="history">[close]</button></div>
-      <p class="history-help">Save a version at a useful stopping point. Autosave keeps the latest draft.</p>
+      <p class="history-help">Save a version whenever you reach a useful stopping point. Autosave keeps your latest draft.</p>
       ${editable()?'<button class="pill" type="button" data-action="save-version">save version</button>':''}
-      <ul class="history-list">${history.length?history.map(v=>`<li><div class="history-copy"><strong>${escape(v.title)}</strong><small>${escape(versionTime(v.created_at))} · ${escape(v.saved_by_name)}</small></div>${editable()?`<button class="tool" type="button" data-restore-version="${v.id}">[restore]</button>`:''}</li>`).join(''):'<li class="history-empty">No versions saved yet.</li>'}</ul>`;
+      <ul class="history-list">${history.length?history.map((v,i)=>`<li><div class="history-copy"><strong>${escape(v.title)}</strong><small>${escape(formatVersionDate(v.created_at))} · ${escape(v.saved_by_name)}</small></div>${editable()?`<button class="tool" type="button" data-restore-version="${v.id}">[restore]</button>`:''}</li>`).join(''):'<li class="history-empty">No versions saved yet.</li>'}</ul>`;
     pop.hidden=false;
   }
   async function saveVersion() {
     await save();
-    if(!current||!editable())return;
-    const result=await api(`/api/documents/${current.id}/versions?user_id=${me}`,{method:'POST'});
+    if (!current || !editable()) return;
+    const result = await api(`/api/documents/${current.id}/versions?user_id=${me}`, {method:'POST'});
     notice(result.created?'version saved':'latest version already saved');
     await renderVersions();
   }
   async function restoreVersion(id) {
-    if(!current||!editable())return;
-    if(!confirm('Restore this version? The current draft will be saved to history first.'))return;
+    if (!current || !editable()) return;
+    if (!confirm('Restore this version? The current draft will be saved to history first.')) return;
     await save();
-    const result=await api(`/api/documents/${current.id}/versions/${id}/restore?user_id=${me}`,{method:'POST'});
-    await refreshDoc();await loadDocs();await renderVersions();
+    const result = await api(`/api/documents/${current.id}/versions/${id}/restore?user_id=${me}`,{method:'POST'});
+    await refreshDoc(); await loadDocs(); await renderVersions();
     notice(result.restored?'version restored · previous draft kept':'already showing this version');
   }
 
@@ -160,7 +163,7 @@
     await save();
     current = await api(`/api/documents/${id}?user_id=${me}`);
     dirty = false;shareOpen = false;versionsOpen = false;
-    $('versionsPop').hidden=true;
+    $('versionsPop').hidden = true;
     sessionStorage.setItem('ruth-docs-active',String(id));
     renderDoc();
   }
@@ -207,7 +210,7 @@
   }
   async function importFile(file) {
     if (!file) return;
-    // A picker can be overridden. Enforce the text-only boundary here too.
+    // Browser file dialogs can be overridden. Enforce text-only imports here too.
     if (!/\.(txt|md)$/i.test(file.name)) throw Error('Upload accepts only .txt and .md. Use [+ image] for pictures.');
     const form = new FormData();form.append('file',file);form.append('user_id',me);
     const d = await api('/api/import',{method:'POST',body:form});
@@ -261,7 +264,7 @@
   function insertImage(src) {
     if (!editable()) return;
     editor.focus();
-    document.execCommand('insertHTML',false,'<figure data-align="center"><img src="'+escape(src)+'" alt="Inserted image" width="400"></figure><p><br></p>');
+    document.execCommand('insertHTML',false,`<figure data-align="center"><img src="${escape(src)}" alt="Inserted image" width="400"></figure><p><br></p>`);
     const imgs = [...editor.querySelectorAll('img')];
     if (imgs.length) {imgs[imgs.length-1].setAttribute('draggable','true');selectImage(imgs[imgs.length-1]);}
     changed();
@@ -276,7 +279,7 @@
     imageFigure(selectedImage).dataset.align = where;
     selectImage(selectedImage);changed();
   }
-  // Fast center-crop presets keep this assessment prototype deliberately small.
+  // Quick, non-interactive center-crop presets. Changes only this image, not other content.
   async function cropImage(ratio) {
     if (!selectedImage || !editable()) return;
     const target = selectedImage;
@@ -317,11 +320,11 @@
     const returning=users.some(u=>u.id===savedUser);
     me=returning?savedUser:1;
     renderSession();
-    if(returning) await openLanding();else showLogin();
+    if(returning) await openLanding(); else showLogin();
     document.addEventListener('click',handleError(async e=>{
       const b=e.target.closest('button');if(!b) return;
-      if(b.dataset.loginUser)return chooseLogin(Number(b.dataset.loginUser));
-      if(b.dataset.restoreVersion)return restoreVersion(Number(b.dataset.restoreVersion));
+      if (b.dataset.loginUser) return chooseLogin(Number(b.dataset.loginUser));
+      if (b.dataset.restoreVersion) return restoreVersion(Number(b.dataset.restoreVersion));
       if (b.dataset.imgAlign) return setImageAlignment(b.dataset.imgAlign);
       if (b.dataset.imgCrop) return cropImage(Number(b.dataset.imgCrop));
       if (b.dataset.imgMove) return moveImage(b.dataset.imgMove);
@@ -333,9 +336,9 @@
       if (b.dataset.action==='new') return newDoc();
       if (b.dataset.action==='save') {await save();notice('saved');return;}
       if (b.dataset.action==='rename') {title.focus();title.select();return;}
-      if(b.dataset.action==='switch-account')return showLogin();
-      if(b.dataset.action==='save-version')return saveVersion();
-      if(b.dataset.action==='history') {versionsOpen=!versionsOpen;shareOpen=false;renderShare();return renderVersions();}
+      if (b.dataset.action==='switch-account') return showLogin();
+      if (b.dataset.action==='save-version') return saveVersion();
+      if (b.dataset.action==='history') {versionsOpen=!versionsOpen;shareOpen=false;renderShare();return renderVersions();}
       if (b.dataset.action==='share') {shareOpen=!shareOpen;versionsOpen=false;$('versionsPop').hidden=true;$('historyBtn').setAttribute('aria-expanded','false');return renderShare();}
     }));
     document.addEventListener('submit',handleError(async e=>{
@@ -347,7 +350,7 @@
     title.addEventListener('input',changed);editor.addEventListener('input',changed);
     $('imageSize').addEventListener('input',e=>setImageWidth(e.target.value));
     editor.addEventListener('click',e=>{const img=e.target.closest('img');if(img)selectImage(img);});
-    // Drag an image onto another document block to reorder it.
+    // Drag an image to another block in the document to reorder it.
     editor.addEventListener('dragstart',e=>{
       const img=e.target.closest('img');
       if (!img || !editable()) return;
