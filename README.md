@@ -1,8 +1,14 @@
-Ruth Docs is a document editor built for an assessment. 
+# Ruth Docs
 
-## Run locally
+Ruth Docs is a document editor I built for the assessment, with features inspired by Substack, Notion, and Google Docs. I kept the interface minimal and focused on the main writing workflow, including editing, saving, sharing, and reopening documents.
 
-With Python 3.11+.
+The backend is built with Python and FastAPI, and SQLite stores the users, documents, access permissions, and version checkpoints. The frontend uses HTML, CSS, and JavaScript.
+
+## Running it locally
+
+You will need Python 3.11 or later.
+
+Clone the repository and open the project folder. Then run:
 
 ```bash
 python3 -m venv .venv
@@ -11,28 +17,28 @@ python3 -m pip install -r requirements.txt pytest httpx
 python3 -m uvicorn app:app --reload
 ```
 
-Visit <http://127.0.0.1:8000>. Demo accounts: **Ruth**, **Leen**, and **Arden**. Run tests with `python3 -m pytest -q`.
+Open http://127.0.0.1:8000 in your browser.
 
-You can override the SQLite path with `RUTH_DOCS_DB=/path/to/database.db`.
+To run the automated tests:
 
-## Demo flow
+```bash
+python3 -m pytest -q
+```
 
-1. As Ruth, create a document, change its title, and format the contents.
-2. Click Save or stop typing briefly to autosave. Refresh the page and verify the content and open document are retained.
-3. Use **share** to grant Leen `can view` access. Switch to Leen and verify the document is read-only.
-4. Switch to Ruth, change Leen to `can edit`, then switch back to Leen and verify that editing works.
-5. Import a `.txt` or `.md` file from Upload; add a picture through [+ image], click it to resize, crop, align, or move it.
-6. Switch to Arden and verify that documents not shared with him do not appear or open.
+By default, SQLite stores the database in a local file. Its path can also be set using the `RUTH_DOCS_DB` environment variable.
 
-### Version history walkthrough
+## Features
 
-Click **[history] → save version** to record a checkpoint; edit the document, create another, and click **restore** on an older checkpoint to revert. Restoring automatically makes a recovery checkpoint for the previously current draft.
+Documents can be created, edited, formatted, and saved. There is an autosave option along with a manual save button. The editor also includes word count, basic version history, and a way to restore earlier saved versions.
 
-## Important limitations
+There are three mock accounts: Ruth, Leen, and Arden. Documents can be shared with viewing or editing access. I added this account switcher to make it easier to demonstrate the sharing features without building a full login system.
 
-- **The demo login is NOT authentication**.
-- SQLite persists locally, but a Render free deployment usually has an **ephemeral filesystem**. A redeploy/restart may clear the database unless you configure persistent storage. For durable hosting use an appropriate managed database or attached disk.
+The upload option accepts .txt and .md files. Images are inserted separately and can be resized, aligned, moved, or cropped using simple presets.
 
-## Deployment
+## Deployment and limitations
 
-The included `render.yaml` provides a demo web service on Render. Connect the repository in Render to deploy.
+The live version is available at https://ruth-docs.onrender.com.
+
+This is a prototype rather than a production application. The mock accounts are not real authentication, and there are no page breaks or options to export documents in multiple formats. There is also no real-time collaborative editing.
+
+The app is deployed on Render's free tier. Since its filesystem is temporary, the SQLite data may not survive a restart or redeployment.
