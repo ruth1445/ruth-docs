@@ -5,7 +5,7 @@ from app import create_app
 def test_create_save_share_and_permissions(tmp_path):
     client = TestClient(create_app(str(tmp_path / 'test.db')))
     initial = client.get('/api/documents', params={'user_id':1}).json()
-    assert initial[0]['title'] == 'Field Notes'
+    assert initial == []  # landing starts blank; the browser creates an untitled draft
     created = client.post('/api/documents', json={'user_id':1,'title':'Research note'})
     assert created.status_code == 201
     document_id = created.json()['id']
@@ -65,3 +65,21 @@ def test_image_dimensions_and_alignment_survive_sanitization(tmp_path):
     client.patch(f'/api/documents/{doc_id}',json={'user_id':1,'content':blocked})
     result=client.get(f'/api/documents/{doc_id}',params={'user_id':1}).json()['content']
     assert 'nonsense' not in result and '999999' not in result
+
+
+def test_removes_only_untouched_old_sample_and_preserves_real_documents(tmp_path):
+    import sqlite3
+    path = tmp_path / "old-sample.db"
+    TestClient(create_app(str(path)))
+    original = (
+        "<h2>Field Notes</h2><p>An observation is not yet an explanation.</p>"
+        "<p>Begin with what you know. Mark what you assume. Return to what remains uncertain.</p>"
+    )
+    with sqlite3.connect(path) as db:
+        db.execute("INSERT INTO documents(owner_id,title,content) VALUES (1,?,?)",
+                   ("Field Notes",original))
+        db.execute("INSERT INTO documents(owner_id,title,content) VALUES (1,?,?)",
+                   ("My actual notes","<p>Keep this</p>"))
+    client=TestClient(create_app(str(path)))
+    titles=[d["title"] for d in client.get("/api/documents",params={"user_id":1}).json()]
+    assert titles==["My actual notes"]
