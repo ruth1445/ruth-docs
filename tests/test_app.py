@@ -83,3 +83,22 @@ def test_removes_only_untouched_old_sample_and_preserves_real_documents(tmp_path
     client=TestClient(create_app(str(path)))
     titles=[d["title"] for d in client.get("/api/documents",params={"user_id":1}).json()]
     assert titles==["My actual notes"]
+
+
+def test_manual_version_history_restore_and_permissions(tmp_path):
+    client=TestClient(create_app(str(tmp_path/'history.db')))
+    doc=client.post('/api/documents',json={'user_id':1,'title':'First draft'}).json()['id']
+    client.patch(f'/api/documents/{doc}',json={'user_id':1,'content':'<p>First paragraph</p>'})
+    first=client.post(f'/api/documents/{doc}/versions',params={'user_id':1})
+    assert first.status_code==201 and first.json()['created']
+    assert client.post(f'/api/documents/{doc}/versions',params={'user_id':1}).json()['created'] is False
+    client.patch(f'/api/documents/{doc}',json={'user_id':1,'title':'Second draft','content':'<p>Changed</p>'})
+    assert client.get(f'/api/documents/{doc}/versions',params={'user_id':2}).status_code==404
+    client.post(f'/api/documents/{doc}/share',json={'user_id':1,'target_user_id':2,'role':'view'})
+    assert client.get(f'/api/documents/{doc}/versions',params={'user_id':2}).status_code==200
+    assert client.post(f'/api/documents/{doc}/versions',params={'user_id':2}).status_code==403
+    assert client.post(f'/api/documents/{doc}/versions/{first.json()["id"]}/restore',params={'user_id':2}).status_code==403
+    assert client.post(f'/api/documents/{doc}/versions/{first.json()["id"]}/restore',params={'user_id':1}).status_code==200
+    restored=client.get(f'/api/documents/{doc}',params={'user_id':1}).json()
+    assert restored['title']=='First draft' and 'First paragraph' in restored['content']
+    assert any(x['title']=='Second draft' for x in client.get(f'/api/documents/{doc}/versions',params={'user_id':1}).json())
