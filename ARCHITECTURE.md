@@ -1,24 +1,13 @@
-# Architecture and scope note
+# Architecture
 
-**Goal:** a deliberately small, end-to-end writing workflow: create → edit → save → share → reopen.
+I kept the architecture relatively light because of the assessment's time constraints. Ruth Docs uses a JavaScript, HTML, and CSS frontend, a Python backend with FastAPI, and SQLite for storage. The idea was to get the entire writing workflow working without spending too much time setting up infrastructure.
 
-**Stack:** FastAPI serves the user-designed static HTML/CSS/JS editor and provides JSON APIs; SQLite stores demo users, documents and collaborator access. Bleach sanitizes rich-text HTML before persistence. The supplied UI's original localStorage store was replaced with API requests to avoid a browser-only copy that fails to demonstrate backend persistence.
+The frontend sends requests to FastAPI to create, retrieve, update, and share documents. SQLite stores the user accounts, document titles and content, sharing permissions, and saved versions. The main tables are `users`, `documents`, `shares`, and `document_versions`.
 
-**Data model:**
-- `document_versions(id, document_id, title, content, saved_by, created_at)`: optional explicit checkpoints, max 15 per document; restore saves the current draft as a recovery point first.
+For sharing, a document can be opened with view or edit access. The backend checks these permissions instead of relying only on what the interface allows someone to click. Since the accounts are simulated, though, this is not real authentication.
 
-- `users(id, name)`: three synthetic demo users.
-- `documents(id, owner_id, title, content, updated_at)`.
-- `shares(document_id, user_id, role)`: `view` or `edit` permission. Existing databases are migrated automatically to add `role` with `edit` default.
+I kept autosave along with a manual save button, and added a simple version history with saved checkpoints and a restore option. For uploads, text and Markdown files are handled separately from inserted images. The backend also sanitizes document HTML before storing it.
 
-**Key decisions:**
-1. Preserve the minimal, restrained typography and document list from the supplied UI, while reusing the working FastAPI backend.
-2. Keep the demo switcher for reviewer convenience, explicitly without claiming secure authentication.
-3. Enforce role restrictions on the server for requests, not only by hiding editor controls.
-4. Start with an empty, Substack-inspired writing surface with visual-only placeholders; autosave after a short idle period, plus an explicit Save button and status.
-5. Import text and Markdown as editable text using a separate file picker from the size-limited image insertion controls.
-6. Use SQLite for inspectable prototype persistence. An ephemeral hosted disk does not meet long-term durability requirements.
+I chose SQLite because it was simple to use for a small prototype. One limitation is that the live version is running on Render's free tier, so the database might be lost when the service restarts or redeploys.
 
-**Deliberate exclusions:** real authentication, automatic full revision tracking, real-time collaboration, merge/conflict handling, monitoring, and production hardening. Lightweight checkpoint-based version history is included.
-
-**Next if funded:** real auth and authorization, managed Postgres, robust revision history with conflict detection, then real-time collaboration based on observed demand.
+I left out actual login, page breaks, downloads in different formats, and real-time collaboration. With more time, I'd first add authentication and a persistent database, then improve the document editor and collaboration features.
