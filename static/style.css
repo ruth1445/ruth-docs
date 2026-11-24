@@ -106,3 +106,12 @@ aside h2{margin:0 0 6px;display:flex;align-items:center;gap:10px}
 .login-choice{cursor:pointer;background:none;border:0;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;text-align:left;padding:15px 0;font-size:16px}
 .login-choice:hover{color:#9A4F35}
 @media(max-width:640px){.login-sheet{padding:36px 25px}.meta-stats{gap:12px}.versions-pop{width:min(380px,90vw)}}
+
+/* Substack-like blank writing surface; placeholders are never saved as content. */
+.title::placeholder{color:#aaa8a2;opacity:1;font-weight:400}
+.ed{position:relative}
+.ed[data-empty="true"][contenteditable="true"]::before{
+  content:attr(data-placeholder);
+  position:absolute;top:0;left:0;
+  color:#aaa8a2;pointer-events:none;
+}
