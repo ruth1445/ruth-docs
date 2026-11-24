@@ -39,6 +39,7 @@
     const text=editor.innerText || editor.textContent || '';
     const words=text.match(/[\p{L}\p{N}]+(?:['’][\p{L}\p{N}]+)*/gu)||[];
     $('wordCount').textContent=`${words.length.toLocaleString()} ${words.length===1?'word':'words'}`;
+    editor.dataset.empty=String(!text.trim() && !editor.querySelector('img'));
   }
   function renderSession() {$('accountName').textContent=userName(me);}
   function showLogin() {
@@ -46,17 +47,21 @@
     $('loginGate').hidden=false;
     $('loginChoices').querySelector('button')?.focus();
   }
+  async function openLanding() {
+    await loadDocs();
+    const saved=Number(sessionStorage.getItem('ruth-docs-active'));
+    const first=docs.find(d=>d.id===saved)||docs[0];
+    if(first) return openDoc(first.id);
+    // First-time writers land on a blank, editable canvas.
+    const created=await api('/api/documents',json('POST',{user_id:me,title:'untitled'}));
+    await loadDocs();await openDoc(created.id);
+  }
   async function chooseLogin(id) {
     if(!users.some(u=>u.id===id)) return;
     if(id!==me) await switchUser(id);
     me=id;sessionStorage.setItem('ruth-docs-demo-user',String(id));renderSession();
     $('loginGate').hidden=true;
-    if(!current) {
-      await loadDocs();
-      const saved=Number(sessionStorage.getItem('ruth-docs-active'));
-      const first=docs.find(d=>d.id===saved)||docs[0];
-      if(first) await openDoc(first.id);else renderDoc();
-    }
+    if(!current) await openLanding();
   }
   function versionTime(s) {
     return new Date(s.replace(' ','T')+'Z').toLocaleString(undefined,{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
@@ -137,11 +142,11 @@
     $('doc').hidden = !d;
     $('empty').hidden = !!d;
     if (!d) return;
-    title.value = d.title;
+    title.value = d.title === 'untitled' ? '' : d.title;
     title.readOnly = !editable();
     selectedImage = null;
     $('imageControls').hidden = true;
-    editor.innerHTML = d.content || '<p><br></p>';
+    editor.innerHTML = d.content && d.content !== '<p><br></p>' ? d.content : '';
     editor.querySelectorAll('img').forEach(img=>img.setAttribute('draggable','true'));
     editor.contentEditable = editable() ? 'true' : 'false';
     editor.setAttribute('aria-readonly', String(!editable()));
@@ -188,7 +193,7 @@
     $('versionsPop').hidden=true;renderSession();
     sessionStorage.removeItem('ruth-docs-active');
     await loadDocs();
-    if (docs.length) await openDoc(docs[0].id); else renderDoc();
+    if (docs.length) await openDoc(docs[0].id); else await openLanding();
   }
   async function grant(id,permission) {
     if (!current?.is_owner || !id) return;
@@ -312,12 +317,7 @@
     const returning=users.some(u=>u.id===savedUser);
     me=returning?savedUser:1;
     renderSession();
-    if(returning) {
-      await loadDocs();
-      const saved=Number(sessionStorage.getItem('ruth-docs-active'));
-      const first=docs.find(d=>d.id===saved)||docs[0];
-      if(first) await openDoc(first.id);else renderDoc();
-    } else showLogin();
+    if(returning) await openLanding();else showLogin();
     document.addEventListener('click',handleError(async e=>{
       const b=e.target.closest('button');if(!b) return;
       if(b.dataset.loginUser)return chooseLogin(Number(b.dataset.loginUser));
