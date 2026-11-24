@@ -98,27 +98,24 @@ def create_app(db_path: str | None = None) -> FastAPI:
         CREATE TABLE IF NOT EXISTS document_versions(
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           document_id INTEGER NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
-          title TEXT NOT NULL, content TEXT NOT NULL,
+          title TEXT NOT NULL,
+          content TEXT NOT NULL,
           saved_by INTEGER NOT NULL REFERENCES users(id),
           created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%d %H:%M:%f', 'now')));
-        CREATE INDEX IF NOT EXISTS idx_versions_doc ON document_versions(document_id,id DESC);
+        CREATE INDEX IF NOT EXISTS idx_versions_doc
+          ON document_versions(document_id, id DESC);
         """)
         if "role" not in [r[1] for r in db.execute("PRAGMA table_info(shares)")]:
             db.execute("ALTER TABLE shares ADD COLUMN role TEXT NOT NULL DEFAULT 'edit'")
         for uid, name in [(1, "Ruth"), (2, "Leen"), (3, "Arden")]:
             db.execute("INSERT INTO users(id,name) VALUES(?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name", (uid, name))
-        # Remove only the untouched demo seed from older deployments.
-        # Preserve any document the user edited, shared, or versioned.
         sample_content = (
             "<h2>Field Notes</h2><p>An observation is not yet an explanation.</p>"
             "<p>Begin with what you know. Mark what you assume. Return to what remains uncertain.</p>"
         )
         db.execute("""DELETE FROM documents WHERE owner_id=1 AND title='Field Notes'
-            AND content=? AND NOT EXISTS (
-              SELECT 1 FROM shares WHERE document_id=documents.id
-            ) AND NOT EXISTS (
-              SELECT 1 FROM document_versions WHERE document_id=documents.id
-            )""", (sample_content,))
+            AND content=? AND NOT EXISTS (SELECT 1 FROM shares WHERE document_id=documents.id)
+            AND NOT EXISTS (SELECT 1 FROM document_versions WHERE document_id=documents.id)""",(sample_content,))
 
     app = FastAPI(title="Ruth Docs", version="0.1-demo")
     app.mount("/static", StaticFiles(directory=BASE / "static"), name="static")
@@ -140,25 +137,26 @@ def create_app(db_path: str | None = None) -> FastAPI:
         return doc
 
     def require_editor(db, doc_id: int, user_id: int):
-        doc = get_accessible(db,doc_id,user_id)
+        doc = get_accessible(db, doc_id, user_id)
         if doc["owner_id"] != user_id:
             share = db.execute("SELECT role FROM shares WHERE document_id=? AND user_id=?",
-                               (doc_id,user_id)).fetchone()
-            if not share or share["role"] != "edit":
-                raise HTTPException(403,"View-only users cannot edit documents")
+                               (doc_id, user_id)).fetchone()
+            if share is None or share["role"] != "edit":
+                raise HTTPException(403, "View-only users cannot edit documents")
         return doc
 
-    def create_version(db,doc,user_id):
-        latest=db.execute("SELECT id,title,content FROM document_versions WHERE document_id=? ORDER BY id DESC LIMIT 1",
-                          (doc["id"],)).fetchone()
-        if latest and latest["title"]==doc["title"] and latest["content"]==doc["content"]:
-            return latest["id"],False
-        row=db.execute("INSERT INTO document_versions(document_id,title,content,saved_by) VALUES(?,?,?,?)",
-                       (doc["id"],doc["title"],doc["content"],user_id))
+    def create_version(db, doc, user_id: int):
+        latest = db.execute("""SELECT id, title, content FROM document_versions
+            WHERE document_id=? ORDER BY id DESC LIMIT 1""", (doc["id"],)).fetchone()
+        if latest and latest["title"] == doc["title"] and latest["content"] == doc["content"]:
+            return latest["id"], False
+        cursor = db.execute("""INSERT INTO document_versions(document_id,title,content,saved_by)
+            VALUES (?,?,?,?)""", (doc["id"], doc["title"], doc["content"], user_id))
+        # Keep a deliberately small history for a demo, including image-heavy versions.
         db.execute("""DELETE FROM document_versions WHERE document_id=? AND id NOT IN
             (SELECT id FROM document_versions WHERE document_id=? ORDER BY id DESC LIMIT 15)""",
-            (doc["id"],doc["id"]))
-        return row.lastrowid,True
+            (doc["id"], doc["id"]))
+        return cursor.lastrowid, True
 
     @app.get("/")
     def index():
@@ -227,34 +225,36 @@ def create_app(db_path: str | None = None) -> FastAPI:
             return {"saved": True}
 
     @app.get("/api/documents/{doc_id}/versions")
-    def list_versions(doc_id:int,user_id:int):
+    def list_versions(doc_id: int, user_id: int):
         with connect() as db:
-            get_accessible(db,doc_id,user_id)
-            return [dict(r) for r in db.execute("""SELECT v.id,v.title,v.created_at,u.name AS saved_by_name
+            get_accessible(db, doc_id, user_id)
+            return [dict(row) for row in db.execute("""SELECT v.id, v.title, v.created_at,
+                u.name AS saved_by_name
                 FROM document_versions v JOIN users u ON u.id=v.saved_by
-                WHERE v.document_id=? ORDER BY v.id DESC LIMIT 15""",(doc_id,))]
+                WHERE v.document_id=? ORDER BY v.id DESC LIMIT 15""", (doc_id,))]
 
-    @app.post("/api/documents/{doc_id}/versions",status_code=201)
-    def save_version(doc_id:int,user_id:int):
+    @app.post("/api/documents/{doc_id}/versions", status_code=201)
+    def save_version(doc_id: int, user_id: int):
         with connect() as db:
-            doc=require_editor(db,doc_id,user_id)
-            version_id,created=create_version(db,doc,user_id)
-            return {"id":version_id,"created":created}
+            doc = require_editor(db, doc_id, user_id)
+            version_id, created = create_version(db, doc, user_id)
+            return {"id": version_id, "created": created}
 
     @app.post("/api/documents/{doc_id}/versions/{version_id}/restore")
-    def restore_version(doc_id:int,version_id:int,user_id:int):
+    def restore_version(doc_id: int, version_id: int, user_id: int):
         with connect() as db:
-            doc=require_editor(db,doc_id,user_id)
-            version=db.execute("SELECT * FROM document_versions WHERE document_id=? AND id=?",
-                               (doc_id,version_id)).fetchone()
+            doc = require_editor(db, doc_id, user_id)
+            version = db.execute("""SELECT * FROM document_versions
+                WHERE document_id=? AND id=?""", (doc_id, version_id)).fetchone()
             if version is None:
-                raise HTTPException(404,"Version not found for this document")
-            if doc["title"]==version["title"] and doc["content"]==version["content"]:
-                return {"restored":False,"reason":"already_current"}
-            create_version(db,doc,user_id)  # recovery snapshot before restore
-            db.execute("UPDATE documents SET title=?,content=?,updated_at=datetime('now') WHERE id=?",
-                       (version["title"],version["content"],doc_id))
-            return {"restored":True}
+                raise HTTPException(404, "Version not found for this document")
+            if doc["title"] == version["title"] and doc["content"] == version["content"]:
+                return {"restored": False, "reason": "already_current"}
+            # A recovery point is created before replacing the current contents.
+            create_version(db, doc, user_id)
+            db.execute("""UPDATE documents SET title=?,content=?,updated_at=datetime('now')
+                WHERE id=?""", (version["title"], version["content"], doc_id))
+            return {"restored": True}
 
     @app.post("/api/documents/{doc_id}/share", status_code=201)
     def share_document(doc_id: int, payload: ShareDocument):
